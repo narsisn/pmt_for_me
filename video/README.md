@@ -68,41 +68,58 @@ python train_net_video.py \
 
 For detailed instructions on running evaluation on different datasets, see [Evaluation](model_zoo/evaluation.md).
 
+### Training
+
+To train a PMT video model, run:
+
+```bash
+python3 train_net_video.py \
+  --num-gpus 4 \
+  --num-machines 2 \
+  --config-file /path/to/config.yaml \
+  MODEL.WEIGHTS /path/to/segmenter_weight.pth \
+  MODEL.BACKBONE.TEST.WINDOW_SIZE 1 \
+  OUTPUT_DIR /path/to/output
+```
+
+Replace `/path/to/segmenter_weight.pth` with the segmenter checkpoint used to initialize training. For DINOv2 models, choose this weight from the `Init Weights` column in [DINOv2 Models](model_zoo/dinov2.md). For DINOv3 models, use the `Init Weights` column in [DINOv3 Models](model_zoo/dinov3.md).
+
+Replace `/path/to/output` with the directory where training logs and checkpoints should be written.
+
 ### Benchmark
 
 To calculate the FPS and GFLOPs, run: 
 
 ```bash
+# DINOv2 FPS
 python benchmark.py \
   --task fps \
   --config-file    /path/to/config.yaml \
   --model-weights  /path/to/weight.pth  \
-  --warmup-iters 100 
+  --warmup-iters 100 \
+  --model-type dinov2
+
+# DINOv3 FPS
+python benchmark.py \
+  --task fps \
+  --config-file    /path/to/config.yaml \
+  --model-weights  /path/to/weight.pth  \
+  --warmup-iters 100 \
+  --model-type dinov3 \
+  --fused-qkv
 
 export TIMM_FUSED_ATTN=0 
 python benchmark.py \
   --task flops \
   --config-file    /path/to/config.yaml \
-  --model-weights  /path/to/weight.pth  
+  --model-weights  /path/to/weight.pth \
+  --model-type dinov2
 ```
+
+For DINOv3 FPS benchmarking, enable `--fused-qkv`. This is recommended to get FPS closer to the DINOv2 setup.
 
 🔧 Replace `/path/to/config.yaml` with the path to the config file.  
 🔧 Replace `/path/to/weight.pth` with the path to the checkpoint to evaluate.   
-
-## Demo
-
-We provide example visualizations below.  
-
-
-<img src="./docs/videos/1f17cd7c_5.gif" width="400"/> <img src="./docs/videos/d4f4cf55_5.gif" width="400" /> 
-<img src="./docs/videos/1010_kI0mOZirPGs_5.gif" width="400" /> <img src="./docs/videos/1975_1qyIMfzlXnY_5.gif" width="400" />
-<!-- <img src="./docs/videos/35d5e5149d_5.gif" width="400" />  -->
-
-
-
-To generate additional visualization samples, please use the code in [Visualization](model_zoo/visualization.md).
-
-
 
 ## Model Zoo
 
@@ -115,11 +132,11 @@ We provide pre-trained weights for both DINOv2- and DINOv3-based PMT models.
 If you find this work useful in your research, please cite it using the BibTeX entry below:
 
 ```BibTeX
-@article{Cavagnero2026PMT,
-  author     = {Cavagnero, Niccol\`{o} and Norouzi, Narges and Dubbelman, Gijs and {de Geus}, Daan},
-  title      = {{PMT: Plain Mask Transformer for Image and Video Segmentation with Frozen Vision Encoders}},
-  journal    = {arxiv},
-  year       = {2026},
+@inproceedings{cavagnero2026pmt,
+  author    = {Cavagnero, Niccol\`{o} and Norouzi, Narges and Dubbelman, Gijs and {de Geus}, Daan},
+  title     = {{PMT: Plain Mask Transformer for Image and Video Segmentation with Frozen Vision Encoders}},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW)},
+  year      = {2026},
 }
 ```
 

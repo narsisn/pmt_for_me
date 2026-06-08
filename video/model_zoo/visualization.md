@@ -1,7 +1,7 @@
 ## Visualization
 
 1. First, select the model and its corresponding configuration file. You can choose them from the
-   [model zoo](model_zoo/dinov2).
+   [model zoo](model_zoo/dinov2) or [DINOv3 model zoo](model_zoo/dinov3).
 2. Then, run the following command:
 
 ```bash

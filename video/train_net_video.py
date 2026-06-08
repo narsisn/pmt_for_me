@@ -213,7 +213,7 @@ def setup(args):
     cfg.merge_from_list(args.opts)
     cfg.freeze()
     default_setup(cfg, args)
-    setup_logger(output=cfg.OUTPUT_DIR, distributed_rank=comm.get_rank(), name="videomt")
+    setup_logger(output=cfg.OUTPUT_DIR, distributed_rank=comm.get_rank(), name="pmt")
 
     if comm.get_rank() == 0:
         wandb.init(
