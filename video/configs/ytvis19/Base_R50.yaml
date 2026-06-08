@@ -25,6 +25,10 @@ MODEL:
       OVERLAP_THRESHOLD: 0.8
       OBJECT_MASK_THRESHOLD: 0.8
       WINDOW_INFERENCE: True
+      TASK: 'vis'
+      MAX_NUM: 10
+      WINDOW_SIZE: 1
+
   
 
 SOLVER:

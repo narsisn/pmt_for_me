@@ -38,7 +38,12 @@ def setup_cfg(args):
     cfg = get_cfg()
     add_videomt_config(cfg)
     cfg.merge_from_file(args.config_file)
-    cfg.merge_from_list(["MODEL.WEIGHTS", args.model_weights] + args.opts)
+    extra_opts = list(args.opts)
+    use_fused_qkv = bool(args.fused_qkv and args.model_type == "dinov3")
+    extra_opts += ["MODEL.BACKBONE.FUSED_QKV", str(use_fused_qkv)]
+    if args.min_size_test is not None:
+        extra_opts += ["INPUT.MIN_SIZE_TEST", str(args.min_size_test)]
+    cfg.merge_from_list(["MODEL.WEIGHTS", args.model_weights] + extra_opts)
     cfg.DATALOADER.NUM_WORKERS = 0
     cfg.freeze()
     setup_logger()
@@ -187,6 +192,8 @@ def main(args):
     model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
     model.window_inference = True
     DetectionCheckpointer(model).load(cfg.MODEL.WEIGHTS)
+    if cfg.MODEL.BACKBONE.get("FUSED_QKV", False):
+        model.backbone._maybe_apply_fused_qkv()
     data_loader = build_test_loader(cfg,cfg.DATASETS.TEST[0],cfg.DATASETS.DATASET_TYPE_TEST[0])
 
     if args.task == "fps":
@@ -215,6 +222,8 @@ if __name__ == "__main__":
     parser.add_argument("--model-weights", required=True, help="Path to model checkpoint")
     parser.add_argument("--warmup-iters", type=int, default=200, help="Warmup iterations for FPS")
     parser.add_argument("--model-type", choices=["dinov2", "dinov3"], required=True, help="Model type for benchmarking")
+    parser.add_argument("--fused-qkv", action="store_true", help="Enable MODEL.BACKBONE.FUSED_QKV during benchmarking")
+    parser.add_argument("--min-size-test", type=int, default=None, help="Override INPUT.MIN_SIZE_TEST")
     parser.add_argument("--opts", nargs=argparse.REMAINDER, default=[], help="Additional config options")
     args = parser.parse_args()
     main(args)

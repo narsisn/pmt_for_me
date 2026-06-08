@@ -4,8 +4,6 @@
 #
 # This file is based on the MaskFormer Training Script from detectron2.
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-# It has been adapted with custom video instance segmentation handling,
-# custom attention mask annealing, and layer-wise learning rate scheduling.
 # ---------------------------------------------------------------
 
 try:
@@ -57,45 +55,11 @@ from videomt import (
     build_detection_test_loader,
 )
 
-from videomt.modeling.two_stage_warmup_poly_schedule import TwoStageWarmupPolySchedule
+from videomt.modeling.warmup_poly_schedule import WarmupPolySchedule
 from detectron2.engine.hooks import HookBase
 from torch.optim import AdamW
 import wandb
 
-class AttentionMaskAnnealingHook(HookBase):
-
-    def mask_annealing(self, start_iter, current_iter, final_iter,dtype,device):
-        poly_power = 0.9
-        if current_iter < start_iter:
-            
-            return torch.ones(1, device=device, dtype=dtype)
-        elif current_iter >= final_iter:
-            return torch.zeros(1, device=device, dtype=dtype)
-        else:
-            progress = (current_iter - start_iter) / (final_iter - start_iter)
-            progress = torch.tensor(progress, device=device, dtype=dtype)
-            return (1.0 - progress).pow(poly_power) 
-
-    def after_step(self):
-        model = self.trainer.model
-        device = model.device
-        dtype = model.module.backbone.decoder.attn_mask_probs[0].dtype
-        
-        if model.module.backbone.decoder.masked_attn_enabled:
-            for i in range(model.module.backbone.num_blocks):
-                model.module.backbone.decoder.attn_mask_probs[i] = self.mask_annealing(
-                    model.module.backbone.start_steps[i],
-                    self.trainer.iter,
-                    model.module.backbone.end_steps[i],
-                    dtype,
-                    device,
-                )
-            for i, prob in enumerate(model.module.backbone.decoder.attn_mask_probs):
-                self.trainer.storage.put_scalar(f"attn_mask_prob_{i}", prob.item())
-        
-
-        if comm.is_main_process():  # Ensure only the main process logs to W&B
-                wandb.log({"trainer/global_step": self.trainer.iter + 1})
 
 class Trainer(DefaultTrainer):
     """
@@ -163,45 +127,18 @@ class Trainer(DefaultTrainer):
 
     @classmethod
     def build_optimizer(cls, cfg, model):
-        encoder_param_names = {
-            n for n, _ in model.backbone.encoder.backbone.named_parameters()
-        }
-        backbone_param_groups = []
-        other_param_groups = []
-        backbone_blocks = len(model.backbone.encoder.backbone.blocks)
-        block_i = backbone_blocks
-
-        for name, param in reversed(list(model.named_parameters())):
-            if not param.requires_grad:
-                continue
-            lr = cfg.SOLVER.BASE_LR
-            if name.replace("backbone.encoder.backbone.", "") in encoder_param_names:
-                name_list = name.split(".")
-                is_block = False
-                for i, key in enumerate(name_list):
-                    if key == "blocks":
-                        block_i = int(name_list[i + 1])
-                        is_block = True
-                if is_block or block_i == 0:
-                    lr *= cfg.SOLVER.LLRD ** (backbone_blocks - 1 - block_i)
-                backbone_param_groups.append(
-                    {"params": [param], "lr": lr, "name": name}
-                )
-            else:
-                other_param_groups.append(
-                    {"params": [param], "lr": cfg.SOLVER.BASE_LR, "name": name}
-                )
-
-        param_groups = backbone_param_groups + other_param_groups
+        param_groups = [
+            {"params": [param], "lr": cfg.SOLVER.BASE_LR, "name": name}
+            for name, param in model.named_parameters()
+            if param.requires_grad
+        ]
         optimizer = AdamW(param_groups, weight_decay=cfg.SOLVER.WEIGHT_DECAY)
-    
         return optimizer
 
     @classmethod
     def build_lr_scheduler(cls, cfg, optimizer):
-        return TwoStageWarmupPolySchedule(
+        return WarmupPolySchedule(
             optimizer,
-            num_backbone_params=sum(len(g["params"]) for g in optimizer.param_groups if "backbone.encoder.backbone" in g["name"]),
             warmup_steps=cfg.SOLVER.WARMUP_STEPS,
             total_steps=cfg.SOLVER.MAX_ITER,
             poly_power=cfg.SOLVER.POLY_POWER,
@@ -281,7 +218,7 @@ def setup(args):
     if comm.get_rank() == 0:
         wandb.init(
             id=cfg.OUTPUT_DIR.rstrip("/").rsplit("/", 1)[-1],
-            project="videomt",
+            project="pmt",
             config=cfg,
             sync_tensorboard=True,
             resume="allow",
@@ -305,6 +242,11 @@ def main(args):
             cfg.MODEL.WEIGHTS, resume=args.resume
         )
 
+        # Apply fused QKV BEFORE compiling so the compiled graph sees merged weights
+        raw_model = model.module if hasattr(model, "module") else model
+        if cfg.MODEL.BACKBONE.get("FUSED_QKV", False):
+            raw_model.backbone._maybe_apply_fused_qkv()
+
         res = Trainer.test(cfg, model)
         if cfg.TEST.AUG.ENABLED:
             raise NotImplementedError
@@ -313,7 +255,6 @@ def main(args):
         return res
 
     trainer = Trainer(cfg)
-    trainer.register_hooks([AttentionMaskAnnealingHook()])
     trainer.resume_or_load(resume=args.resume)
     
     return trainer.train()

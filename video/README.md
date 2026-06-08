@@ -105,16 +105,6 @@ We provide example visualizations below.
 To generate additional visualization samples, please use the code in [Visualization](model_zoo/visualization.md).
 
 
-## Upcoming Features 
-
-```
-- [x] Inference code
-- [x] Flops and FPS code
-- [x] Visualization code 
-- [ ] Training codes 
-- [ ] DINOv3 model zoo and code
-
-```
 
 ## Model Zoo
 
@@ -145,18 +135,3 @@ This project builds upon code from the following libraries and repositories:
 - [Mask2Former](https://github.com/facebookresearch/Mask2Former) (Apache-2.0 License)
 - [Detectron2](https://github.com/facebookresearch/detectron2) (Apache-2.0 License)
 
-in line 1402
-num_frames = cur_masks.shape[1]
-        sem_mask_list = []
-        
-        for frame_idx in range(num_frames):
-            # Get masks for this frame: (q, h, w)
-            frame_masks = cur_masks[:, frame_idx, :, :]
-            # Compute semantic segmentation for this frame: (c, h, w)
-            frame_semseg = torch.einsum("qc,qhw->chw", mask_cls, frame_masks)
-            # Get the argmax (most confident class for each pixel): (h, w)
-            _, frame_sem_mask = frame_semseg.max(0)
-            sem_mask_list.append(frame_sem_mask)
-        
-        # Stack frames back together: (t, h, w)
-        sem_mask = torch.stack(sem_mask_list, dim=0)

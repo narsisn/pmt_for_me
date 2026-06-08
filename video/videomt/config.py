@@ -157,10 +157,11 @@ def add_videomt_config(cfg):
     cfg.MODEL.BACKBONE.DECODER_TYPE = 'online'
     cfg.MODEL.BACKBONE.FROZEN_ENCODER = True
     cfg.MODEL.BACKBONE.LATERAL_PROJECTION = "mlp"
+    cfg.MODEL.BACKBONE.FUSED_QKV = False
         
 
 
     cfg.SOLVER.LLRD = 0.8
     cfg.SOLVER.POLY_POWER = 0.9
-    cfg.SOLVER.WARMUP_STEPS =[500,1000]
+    cfg.SOLVER.WARMUP_STEPS = 6000
     

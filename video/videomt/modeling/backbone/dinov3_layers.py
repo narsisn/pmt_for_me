@@ -1,9 +1,12 @@
+import logging
+from types import MethodType
+from typing import Optional
+
+import math
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional
-import math
-import numpy as np
 from transformers.pytorch_utils import compile_compatible_method_lru_cache
 
 @compile_compatible_method_lru_cache(maxsize=32)
@@ -317,3 +320,109 @@ class DINOv3ViTLayer(nn.Module):
         hidden_states = self.drop_path(hidden_states) + residual
 
         return hidden_states
+
+
+# ---------------------------------------------------------------------------
+# Fused QKV projection utilities
+# ---------------------------------------------------------------------------
+
+def _fused_forward_local(
+    self,
+    hidden_states: torch.Tensor,
+    attention_mask: Optional[torch.Tensor] = None,
+    position_embeddings: Optional[tuple[torch.Tensor, torch.Tensor]] = None,
+    position_embeddings_type: str = 'rope',
+) -> torch.Tensor:
+    """Fused QKV forward for local DINOv3ViTAttention."""
+    batch_size, patches, _ = hidden_states.size()
+
+    if position_embeddings is not None and position_embeddings_type in ('sin', 'learnable'):
+        raise RuntimeError(
+            "fused_qkv is incompatible with sin/learnable position embeddings. "
+            "Use decoder_pe='rope' or disable fused_qkv."
+        )
+
+    qkv = self.qkv_proj(hidden_states)
+    query_states, key_states, value_states = qkv.chunk(3, dim=-1)
+
+    query_states = query_states.view(batch_size, patches, self.num_heads, self.head_dim).transpose(1, 2)
+    key_states = key_states.view(batch_size, patches, self.num_heads, self.head_dim).transpose(1, 2)
+    value_states = value_states.view(batch_size, patches, self.num_heads, self.head_dim).transpose(1, 2)
+
+    if position_embeddings is not None and position_embeddings_type == 'rope':
+        cos, sin = position_embeddings
+        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
+
+    attn_output = F.scaled_dot_product_attention(query_states, key_states, value_states, attention_mask)
+    attn_output = attn_output.transpose(1, 2).contiguous().reshape(batch_size, patches, -1)
+    attn_output = self.o_proj(attn_output)
+    return attn_output
+
+
+def _fused_forward_hf(
+    self,
+    hidden_states: torch.Tensor,
+    attention_mask: Optional[torch.Tensor] = None,
+    position_embeddings: Optional[tuple[torch.Tensor, torch.Tensor]] = None,
+    **kwargs,
+) -> tuple[torch.Tensor, None]:
+    """Fused QKV forward for HuggingFace DINOv3ViTAttention."""
+    batch_size, patches, _ = hidden_states.size()
+
+    qkv = self.qkv_proj(hidden_states)
+    query_states, key_states, value_states = qkv.chunk(3, dim=-1)
+
+    query_states = query_states.view(batch_size, patches, self.num_heads, self.head_dim).transpose(1, 2)
+    key_states = key_states.view(batch_size, patches, self.num_heads, self.head_dim).transpose(1, 2)
+    value_states = value_states.view(batch_size, patches, self.num_heads, self.head_dim).transpose(1, 2)
+
+    cos, sin = position_embeddings
+    query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
+
+    attn_output = F.scaled_dot_product_attention(query_states, key_states, value_states, attention_mask)
+    attn_output = attn_output.transpose(1, 2).contiguous().reshape(batch_size, patches, -1)
+    attn_output = self.o_proj(attn_output)
+    return attn_output, None
+
+
+def _fuse_attention_qkv(attn: nn.Module) -> None:
+    """Fuse separate q/k/v projections into a single qkv_proj on a DINOv3ViTAttention module."""
+    q_proj, k_proj, v_proj = attn.q_proj, attn.k_proj, attn.v_proj
+    D = q_proj.weight.shape[0]
+    device = q_proj.weight.device
+    dtype = q_proj.weight.dtype
+
+    qkv_weight = torch.cat([q_proj.weight.data, k_proj.weight.data, v_proj.weight.data], dim=0)
+
+    q_bias = q_proj.bias.data if q_proj.bias is not None else torch.zeros(D, device=device, dtype=dtype)
+    k_bias = k_proj.bias.data if k_proj.bias is not None else torch.zeros(D, device=device, dtype=dtype)
+    v_bias = v_proj.bias.data if v_proj.bias is not None else torch.zeros(D, device=device, dtype=dtype)
+    qkv_bias = torch.cat([q_bias, k_bias, v_bias], dim=0)
+
+    qkv_proj = nn.Linear(D, 3 * D, bias=True, device=device, dtype=dtype)
+    qkv_proj.weight.data.copy_(qkv_weight)
+    qkv_proj.bias.data.copy_(qkv_bias)
+
+    attn.qkv_proj = qkv_proj
+    del attn.q_proj, attn.k_proj, attn.v_proj
+
+    is_hf = hasattr(attn, 'config')
+    attn.forward = MethodType(_fused_forward_hf if is_hf else _fused_forward_local, attn)
+
+
+def fuse_dinov3_qkv_projections(module: nn.Module) -> int:
+    """Fuse separate q/k/v into single qkv_proj on all DINOv3ViTAttention modules.
+
+    Call AFTER model construction and checkpoint loading, only during inference.
+    Returns the number of attention modules fused.
+    """
+    print("Fusing QKV projections in DINOv3ViTAttention modules...")
+
+    count = 0
+    for _, child in module.named_modules():
+        if hasattr(child, 'q_proj') and hasattr(child, 'k_proj') and hasattr(child, 'v_proj') and hasattr(child, 'o_proj'):
+            _fuse_attention_qkv(child)
+            count += 1
+    logging.info(f"Fused QKV projections in {count} attention modules")
+    return count
+

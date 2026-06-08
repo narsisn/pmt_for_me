@@ -23,9 +23,9 @@ from .scale_block import ScaleBlock
 from typing import List, Tuple, Optional
 import torch
 import torch.nn as nn
-from .dinov3_layers import DINOv3ViTRopePositionEmbedding
+from .dinov3_layers import DINOv3ViTRopePositionEmbedding, fuse_dinov3_qkv_projections
 from ..decoders.video_decoder_online import Decoder as DecoderOnline 
-from ..decoders.video_decoder_segmenter import Decoder as DecoderSegmenter
+
 
 
 class VidEoMT_CLASS(nn.Module):
@@ -48,8 +48,14 @@ class VidEoMT_CLASS(nn.Module):
         hidden_dim: Optional[int] = None,
         decoder_type: str = 'online',
         frozen_encoder: bool = True,
+        fused_qkv: bool = False,
     ):
         super().__init__()
+
+        self.fused_qkv = fused_qkv
+
+        if self.fused_qkv and decoder_pe != 'rope':
+            raise ValueError("fused_qkv requires decoder_pe='rope'.")
 
         self.encoder = ViT(img_size=img_size, backbone_name=name, frozen_encoder=frozen_encoder)
         self.encoder.backbone.patch_embed.strict_img_size = False
@@ -107,26 +113,7 @@ class VidEoMT_CLASS(nn.Module):
                     decoder_pe = decoder_pe,
                     num_frames = num_frames,
                 )
-        elif self.decoder_type == 'segmenter':
-            self.decoder = DecoderSegmenter(
-                    embed_dim = self.encoder.backbone.embed_dim,
-                    hidden_dim = hidden_dim, # MLP hidden dim
-                    num_prefix_tokens = self.encoder.backbone.num_prefix_tokens,
-                    grid_size = self.encoder.backbone.patch_embed.grid_size,
-                    patch_size = self.encoder.backbone.patch_embed.patch_size,
-                    num_classes = num_classes,
-                    num_q = num_q,
-                    num_blocks = num_blocks,
-                    masked_attn_enabled = masked_attn_enabled,
-                    interaction_indices = interaction_indices,
-                    lateral_projection = lateral_projection,
-                    residual_projection = residual_projection,
-                    residual_path = residual_path,
-                    level_scalers = level_scalers,
-                    num_heads = self.num_heads,
-                    decoder_pe = decoder_pe,
-                    num_frames = num_frames,
-                )
+        
 
      
         
@@ -274,6 +261,28 @@ class VidEoMT_CLASS(nn.Module):
         # Final predictions
         return out
 
+    def _maybe_apply_fused_qkv(self) -> None:
+        if not self.fused_qkv or not self.encoder.is_dinov3:
+            return
+
+        needs_fusion = any(
+            hasattr(module, 'q_proj') and hasattr(module, 'k_proj') and hasattr(module, 'v_proj') and hasattr(module, 'o_proj')
+            for _, module in self.named_modules()
+        )
+        if needs_fusion:
+            print("Applying fused QKV projections for DINOv3...")
+            fused_count = fuse_dinov3_qkv_projections(self)
+            logging.info(f"Applied fused_qkv to {fused_count} attention modules")
+
+    def load_state_dict(self, state_dict, strict: bool = True, assign: bool = False):
+        try:
+            incompatible = super().load_state_dict(state_dict, strict=strict, assign=assign)
+        except TypeError:
+            incompatible = super().load_state_dict(state_dict, strict=strict)
+
+        self._maybe_apply_fused_qkv()
+        return incompatible
+
 @BACKBONE_REGISTRY.register()
 class VidEoMT(VidEoMT_CLASS, Backbone):
     def __init__(self, cfg, input_shape):
@@ -296,6 +305,7 @@ class VidEoMT(VidEoMT_CLASS, Backbone):
         self.start_steps = cfg.MODEL.BACKBONE.START_STEPS
         self.end_steps = cfg.MODEL.BACKBONE.END_STEPS
         self.hidden_dim = cfg.MODEL.BACKBONE.HIDDEN_DIM
+        self.fused_qkv = cfg.MODEL.BACKBONE.FUSED_QKV
         
         
         
@@ -317,6 +327,7 @@ class VidEoMT(VidEoMT_CLASS, Backbone):
             frozen_encoder = self.frozen_encoder,
             lateral_projection= self.lateral_projection,
             hidden_dim = self.hidden_dim,
+            fused_qkv = self.fused_qkv,
             
         )
 
