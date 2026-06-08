@@ -1,0 +1,9 @@
+[02/24 16:59:46 d2.checkpoint.detection_checkpoint]: [DetectionCheckpointer] Loading from /projects/prjs1742/Narges/frozen_videomt/training/vipseg/dinov2/step3/vipseg_step3_1/model_final.pth ...
+[02/24 16:59:47 d2.data.common]: Serializing the dataset using: <class 'detectron2.data.common._TorchSerializedList'>
+[02/24 16:59:47 d2.data.common]: Serializing 343 elements to byte tensors and concatenating them all ...
+[02/24 16:59:47 d2.data.common]: Serialized dataset takes 4.12 MiB
+
+--------------------------------------------------
+Total GFlops: 2037.24 ± 14.96
+==================================================
+Total parameters: 359,767,165

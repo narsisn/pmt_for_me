@@ -1,0 +1,9 @@
+[02/25 11:24:17 d2.checkpoint.detection_checkpoint]: [DetectionCheckpointer] Loading from /projects/prjs1742/Narges/frozen_videomt/training/yt_vis2021/dinov2/step3/yt-2021_dinov2_online_2/model_final.pth ...
+[02/25 11:24:25 d2.data.common]: Serializing the dataset using: <class 'detectron2.data.common._TorchSerializedList'>
+[02/25 11:24:25 d2.data.common]: Serializing 421 elements to byte tensors and concatenating them all ...
+[02/25 11:24:25 d2.data.common]: Serialized dataset takes 29.88 MiB
+
+--------------------------------------------------
+Total GFlops: 616.49 ± 43.34
+==================================================
+Total parameters: 359,681,065
