@@ -2,7 +2,7 @@ _BASE_: Base-VSPW-VideoInstanceSegmentation.yaml
 
 MODEL:
   WEIGHTS: "model_final_3c8ec9.pkl"
-  META_ARCHITECTURE: "videomt"
+  META_ARCHITECTURE: "pmt"
   BACKBONE:
     DEEP_SUPERVISION: True
     NO_OBJECT_WEIGHT: 0.1
@@ -45,5 +45,5 @@ DATASETS:
   TRAIN: ("VSPW_vss_video_train",)
   TEST: ("VSPW_vss_video_val",)
 
-OUTPUT_DIR: './output_videomt_R50_480p_VSPW'
+OUTPUT_DIR: './output_pmt_R50_480p_VSPW'
 

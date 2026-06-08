@@ -7,9 +7,9 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 
 # config
-from .config import add_videomt_config
+from .config import add_pmt_config
 
-from .videomt import videomt, videomt_segmenter, videomt_online
+from .pmt import pmt, pmt_segmenter, pmt_online
 from . import modeling
 from . import utils
 

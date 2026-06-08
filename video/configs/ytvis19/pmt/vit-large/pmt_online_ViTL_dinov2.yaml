@@ -1,8 +1,8 @@
 _BASE_: ../../Base_R50.yaml
 MODEL:
-  META_ARCHITECTURE: "videomt_online"
+  META_ARCHITECTURE: "pmt_online"
   BACKBONE:
-    NAME: "VidEoMT"
+    NAME: "PMT"
     NUM_BLOCKS: 6
     IMG_SIZE: 640
     NUM_CLASSES: 40

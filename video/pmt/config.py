@@ -9,9 +9,9 @@
 
 from detectron2.config import CfgNode as CN
 
-def add_videomt_config(cfg):
+def add_pmt_config(cfg):
     """
-    Add config for videomt.
+    Add config for pmt.
     """
     # NOTE: configs from original maskformer
     # data config
@@ -43,7 +43,7 @@ def add_videomt_config(cfg):
     cfg.MODEL.BACKBONE.CLASS_WEIGHT = 1.0
     cfg.MODEL.BACKBONE.DICE_WEIGHT = 1.0
     cfg.MODEL.BACKBONE.MASK_WEIGHT = 20.0
-    cfg.MODEL.BACKBONE.NAME = "VidEoMT"
+    cfg.MODEL.BACKBONE.NAME = "PMT"
 
     # transformer config
     cfg.MODEL.BACKBONE.NHEADS = 8

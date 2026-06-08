@@ -2,7 +2,7 @@ _BASE_: Base-VIPSeg-VideoInstanceSegmentation.yaml
 
 MODEL:
   WEIGHTS: "model_final_3c8ec9.pkl"
-  META_ARCHITECTURE: "videomt"
+  META_ARCHITECTURE: "pmt"
   BACKBONE:
     DEEP_SUPERVISION: True
     NO_OBJECT_WEIGHT: 0.1
@@ -60,4 +60,4 @@ DATASETS:
   TRAIN: ("panoVSPW_vps_video_train",)
   TEST: ("panoVSPW_vps_video_val",)
 
-OUTPUT_DIR: './output_videomt_720p_VIPSeg'
+OUTPUT_DIR: './output_pmt_720p_VIPSeg'

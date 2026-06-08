@@ -28,7 +28,7 @@ from ..decoders.video_decoder_online import Decoder as DecoderOnline
 
 
 
-class VidEoMT_CLASS(nn.Module):
+class PMT_CLASS(nn.Module):
     def __init__(
         self,
         img_size,
@@ -284,7 +284,7 @@ class VidEoMT_CLASS(nn.Module):
         return incompatible
 
 @BACKBONE_REGISTRY.register()
-class VidEoMT(VidEoMT_CLASS, Backbone):
+class PMT(PMT_CLASS, Backbone):
     def __init__(self, cfg, input_shape):
         self.img_size=cfg.MODEL.BACKBONE.IMG_SIZE
         self.num_q = cfg.MODEL.BACKBONE.NUM_OBJECT_QUERIES

@@ -14,7 +14,7 @@ from detectron2.projects.point_rend.point_features import (
     point_sample,
 )
 
-from videomt.utils.misc import is_dist_avail_and_initialized
+from pmt.utils.misc import is_dist_avail_and_initialized
 
 
 def dice_loss(

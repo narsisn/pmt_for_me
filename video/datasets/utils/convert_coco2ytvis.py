@@ -8,7 +8,7 @@ import sys
 
 sys.path.append('../..')
 
-from videomt.data_video.datasets.ytvis import (
+from pmt.data_video.datasets.ytvis import (
     COCO_TO_YTVIS_2019,
     COCO_TO_YTVIS_2021,
     COCO_TO_OVIS

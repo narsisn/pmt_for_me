@@ -14,7 +14,7 @@ from detectron2.modeling import build_model
 from fvcore.nn import FlopCountAnalysis, flop_count_table
 
 
-from videomt import (
+from pmt import (
     YTVISDatasetMapper,
     CocoClipDatasetMapper,
     PanopticDatasetVideoMapper,
@@ -22,7 +22,7 @@ from videomt import (
     YTVISEvaluator,
     VPSEvaluator,
     VSSEvaluator,
-    add_videomt_config,
+    add_pmt_config,
     build_combined_loader,
     build_detection_train_loader,
     build_detection_test_loader,
@@ -36,7 +36,7 @@ logger = logging.getLogger("vps-analysis")
 # -------------------- Setup --------------------
 def setup_cfg(args):
     cfg = get_cfg()
-    add_videomt_config(cfg)
+    add_pmt_config(cfg)
     cfg.merge_from_file(args.config_file)
     extra_opts = list(args.opts)
     use_fused_qkv = bool(args.fused_qkv and args.model_type == "dinov3")

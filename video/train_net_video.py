@@ -41,7 +41,7 @@ from detectron2.utils.logger import setup_logger
 
 # Models
 
-from videomt import (
+from pmt import (
     YTVISDatasetMapper,
     CocoClipDatasetMapper,
     PanopticDatasetVideoMapper,
@@ -49,13 +49,13 @@ from videomt import (
     YTVISEvaluator,
     VPSEvaluator,
     VSSEvaluator,
-    add_videomt_config,
+    add_pmt_config,
     build_combined_loader,
     build_detection_train_loader,
     build_detection_test_loader,
 )
 
-from videomt.modeling.warmup_poly_schedule import WarmupPolySchedule
+from pmt.modeling.warmup_poly_schedule import WarmupPolySchedule
 from detectron2.engine.hooks import HookBase
 from torch.optim import AdamW
 import wandb
@@ -208,7 +208,7 @@ def setup(args):
     cfg = get_cfg()
     # for poly lr schedule
     add_deeplab_config(cfg)
-    add_videomt_config(cfg)
+    add_pmt_config(cfg)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.freeze()

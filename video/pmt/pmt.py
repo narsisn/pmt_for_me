@@ -32,12 +32,12 @@ from detectron2.modeling.backbone import Backbone
 from detectron2.structures import Boxes, ImageList, Instances, BitMasks
 from torchvision.transforms.v2.functional import resize, pad
 
-from .criterion_videomt import VideoSetCriterion, loss_reid
+from .criterion_pmt import VideoSetCriterion, loss_reid
 from .modeling.matcher import VideoHungarianMatcher, VideoHungarianMatcher_Consistent
 from .utils.memory import retry_if_cuda_oom
 
 @META_ARCH_REGISTRY.register()
-class videomt(nn.Module):
+class pmt(nn.Module):
     """
     Copied from "https://github.com/NVlabs/MinVIS".
     """
@@ -412,7 +412,7 @@ class videomt(nn.Module):
 
 
 @META_ARCH_REGISTRY.register()
-class videomt_segmenter(videomt):
+class pmt_segmenter(pmt):
     
 
     @configurable
@@ -915,7 +915,7 @@ class videomt_segmenter(videomt):
 
 
 @META_ARCH_REGISTRY.register()
-class videomt_online(videomt):
+class pmt_online(pmt):
     
     @configurable
     def __init__(

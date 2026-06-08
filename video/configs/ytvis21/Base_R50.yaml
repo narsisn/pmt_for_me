@@ -1,7 +1,7 @@
 _BASE_: Base-YouTubeVIS-VideoInstanceSegmentation.yaml
 MODEL:
   WEIGHTS: "model_final_3c8ec9.pkl"
-  META_ARCHITECTURE: "videomt"
+  META_ARCHITECTURE: "pmt"
   BACKBONE:
     DEEP_SUPERVISION: True
     NO_OBJECT_WEIGHT: 0.1
@@ -75,4 +75,4 @@ DATASETS:
 DATALOADER:
   FILTER_EMPTY_ANNOTATIONS: True
 
-OUTPUT_DIR: './output_videomt_R50_YTVIS21'
+OUTPUT_DIR: './output_pmt_R50_YTVIS21'

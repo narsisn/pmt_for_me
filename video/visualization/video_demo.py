@@ -29,7 +29,7 @@ from detectron2.data.detection_utils import read_image
 from detectron2.projects.deeplab import add_deeplab_config
 from detectron2.utils.logger import setup_logger
 
-from videomt import  add_videomt_config
+from pmt import  add_pmt_config
 from predictor import VisualizationDemo, VisualizationDemo_windows
 
 
@@ -37,7 +37,7 @@ def setup_cfg(args):
 	# load config from file and command-line arguments
 	cfg = get_cfg()
 	add_deeplab_config(cfg)
-	add_videomt_config(cfg)
+	add_pmt_config(cfg)
 	cfg.merge_from_file(args.config_file)
 	cfg.merge_from_list(args.opts)
 	cfg.freeze()
