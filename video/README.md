@@ -1,19 +1,17 @@
-## VidEoMT: Your ViT is Secretly Also a Video Segmentation Model
-**[📄 Paper](?)**
+# PMT: Plain Mask Transformer — Video Segmentation
+**CVPR 2026 Workshop** · [📄 Paper](https://arxiv.org/abs/2603.25398)
 
-**[Narges Norouzi](https://scholar.google.com/citations?user=q7sm490AAAAJ)<sup>1</sup>, [Idil Esen Zulfikar](https://scholar.google.com/citations?user=89vcmSoAAAAJ&hl=en)<sup>2,\*</sup>, [Niccolò Cavagnero](https://scholar.google.com/citations?user=Pr4XHRAAAAAJ)<sup>1,\*</sup>, [Tommie Kerssies](https://tommiekerssies.com)<sup>1</sup>, [Bastian Leibe](https://scholar.google.com/citations?user=ZcULDB0AAAAJ)<sup>2</sup>, [Gijs Dubbelman](https://scholar.google.nl/citations?user=wy57br8AAAAJ)<sup>1</sup>, [Daan de Geus](https://ddegeus.github.io)<sup>1</sup>**
+**[Niccolò Cavagnero](https://scholar.google.com/citations?user=Pr4XHRAAAAAJ), [Narges Norouzi](https://scholar.google.com/citations?user=q7sm490AAAAJ), [Gijs Dubbelman](https://scholar.google.nl/citations?user=wy57br8AAAAJ), [Daan de Geus](https://ddegeus.github.io)**
 
-¹ Eindhoven University of Technology, 
-² RWTH Aachen University, 
-\* *Equal contribution*
+Eindhoven University of Technology
 
 ## Overview
 
-![VidEoMT Overview](./docs/static/images/teaser_arch.jpeg)
+This directory contains the **video segmentation** component of [PMT (Plain Mask Transformer)](../README.md).
 
-We introduce **Video Enocoder-only Mask Transformer (VidEoMT)**, a lightweight encoder-only model for online video segmentation built on a plain Vision Transformer (ViT). It performs both spatial and temporal reasoning within the ViT encoder, without relying on dedicated tracking modules or heavy task-specific heads.
+PMT is a fast Transformer-based segmentation model that operates on top of **frozen** Vision Foundation Model (VFM) features. The key idea is the **Plain Mask Decoder (PMD)**: a lightweight Transformer decoder that processes queries and frozen patch tokens jointly — without finetuning the encoder — keeping it shareable across tasks.
 
-VidEoMT propagates information over time by reusing queries from the previous frame and fusing them with a compact set of learned, frame-agnostic queries. This design achieves competitive accuracy while being 5x–10× faster than existing approaches, reaching up to 160 FPS with a ViT-L backbone.
+This video extension brings PMT to online video instance, panoptic, and semantic segmentation. Temporal reasoning is handled inside the decoder via a compact propagation mechanism, without modifying the frozen ViT encoder.
 
 
 
@@ -29,8 +27,8 @@ bash Miniconda3-latest-Linux-x86_64.sh
 Then create the environment, activate it, and install the dependencies:
 
 ```bash
-conda create -n videomt python==3.13.2
-conda activate videomt
+conda create -n pmt python==3.13.2
+conda activate pmt
 pip install torch==2.9.0 torchvision==0.24.0 --index-url https://download.pytorch.org/whl/cu128
 python -m pip install --no-build-isolation 'git+https://github.com/facebookresearch/detectron2.git'  
 pip install git+https://github.com/cocodataset/panopticapi.git
@@ -52,7 +50,7 @@ wandb login
 
 ### Evaluation
 
-To evaluate a pre-trained VidEoMT model, first prepare the datasets by following the instructions in this [link](datasets/README.md) and download the trained weights from [here](model_zoo/dinov2.md). Once these are set up, run:
+To evaluate a pre-trained PMT model, first prepare the datasets by following the instructions in this [link](datasets/README.md) and download the trained weights from [DINOv2 models](model_zoo/dinov2.md) or [DINOv3 models](model_zoo/dinov3.md). Once these are set up, run:
 
 ```bash
 python train_net_video.py \
@@ -108,7 +106,7 @@ To generate additional visualization samples, please use the code in [Visualizat
 
 ## Model Zoo
 
-We provide pre-trained weights for both DINOv2- and DINOv3-based VidEoMT models.
+We provide pre-trained weights for both DINOv2- and DINOv3-based PMT models.
 
 - **[DINOv2 Models](model_zoo/dinov2.md)** - Original published results and pre-trained weights.
 - **[DINOv3 Models](model_zoo/dinov3.md)** - DINOv3-based models and pre-trained weights.
@@ -117,10 +115,10 @@ We provide pre-trained weights for both DINOv2- and DINOv3-based VidEoMT models.
 If you find this work useful in your research, please cite it using the BibTeX entry below:
 
 ```BibTeX
-@article{Norouzi2026VidEoMT,
-  author     = {Norouzi, Narges and Zulfikar, Idil and Cavagnero, Niccol\`{o} and Kerssies, Tommie and Leibe, Bastian and Dubbelman, Gijs and {de Geus}, Daan},
-  title      = {{VidEoMT: Your ViT is Secretly Also a Video Segmentation Model}},
-  journal   = {arxiv},
+@article{Cavagnero2026PMT,
+  author     = {Cavagnero, Niccol\`{o} and Norouzi, Narges and Dubbelman, Gijs and {de Geus}, Daan},
+  title      = {{PMT: Plain Mask Transformer for Image and Video Segmentation with Frozen Vision Encoders}},
+  journal    = {arxiv},
   year       = {2026},
 }
 ```
@@ -129,6 +127,7 @@ If you find this work useful in your research, please cite it using the BibTeX e
 
 This project builds upon code from the following libraries and repositories:
 - [EoMT](https://github.com/tue-mps/eomt) (MIT License)  
+- [VidEoMT](https://github.com/tue-mps/videomt) (MIT License)  
 - [Hugging Face Transformers](https://github.com/huggingface/transformers) (Apache-2.0 License)  
 - [PyTorch Image Models (timm)](https://github.com/huggingface/pytorch-image-models) (Apache-2.0 License)  
 - [CAVIS](https://github.com/Seung-Hun-Lee/CAVIS) (MIT License)  
