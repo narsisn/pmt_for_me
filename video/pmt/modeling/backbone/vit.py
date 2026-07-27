@@ -30,7 +30,8 @@ class ViT(nn.Module):
 
         self.is_eva = False
         self.is_dinov3 = False
-        
+        self.is_tipsv2 = False
+
         if "/" in backbone_name:
             self.backbone = self.transformers_to_timm(
                 AutoModel.from_pretrained(
@@ -40,6 +41,48 @@ class ViT(nn.Module):
                 img_size,
             )
             self.is_dinov3 = True
+
+        elif backbone_name.startswith("tipsv2"):
+            from .tips_image_encoder import (
+                vit_small as tips_vit_small,
+                vit_base as tips_vit_base,
+                vit_large as tips_vit_large,
+                vit_so400m as tips_vit_so400m,
+                vit_giant2 as tips_vit_giant2,
+            )
+            _TIPSV2_VARIANTS = {
+                "tipsv2_small":   tips_vit_small,
+                "tipsv2_base":    tips_vit_base,
+                "tipsv2_large":   tips_vit_large,
+                "tipsv2_so400m":  tips_vit_so400m,
+                "tipsv2_giant":   tips_vit_giant2,
+            }
+            model_fn = _TIPSV2_VARIANTS.get(backbone_name)
+            if model_fn is None:
+                raise ValueError(
+                    f"Unknown TIPSv2 variant '{backbone_name}'. "
+                    f"Valid options: {list(_TIPSV2_VARIANTS.keys())}"
+                )
+            ffn_layer = "swiglu" if "giant" in backbone_name else "mlp"
+            self.backbone = model_fn(
+                img_size=img_size[0],
+                patch_size=patch_size,
+                ffn_layer=ffn_layer,
+                block_chunks=0,
+                init_values=1.0,
+                interpolate_antialias=True,
+                interpolate_offset=0.0,
+            )
+            # Expose timm-compatible attributes expected by PMT
+            self.backbone.num_prefix_tokens = self.backbone.num_register_tokens + 1
+            self.backbone.patch_embed.grid_size = (
+                img_size[0] // patch_size,
+                img_size[1] // patch_size,
+            )
+            self.is_tipsv2 = True
+            if ckpt_path is not None:
+                self._load_tipsv2_checkpoint(ckpt_path)
+
         else:
             if self._offline_env_enabled():
                 self._force_timm_hf_local_only()
@@ -55,7 +98,7 @@ class ViT(nn.Module):
 
             if "eva" in backbone_name:
                 self.is_eva = True
-                
+
         pixel_mean = torch.tensor([0.485, 0.456, 0.406]).reshape(1, -1, 1, 1)
         pixel_std = torch.tensor([0.229, 0.224, 0.225]).reshape(1, -1, 1, 1)
 
@@ -161,6 +204,28 @@ class ViT(nn.Module):
         )
 
         return backbone
+
+    def _load_tipsv2_checkpoint(self, ckpt_path: str) -> None:
+        """Load a TIPSv2 checkpoint from a .npz or .pt/.pth file."""
+        if ckpt_path.endswith(".npz"):
+            import numpy as np
+            raw = dict(np.load(ckpt_path, allow_pickle=False))
+            state_dict = {k: torch.tensor(v) for k, v in raw.items()}
+        else:
+            state_dict = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+            if isinstance(state_dict, dict):
+                state_dict = state_dict.get(
+                    "model", state_dict.get("state_dict", state_dict)
+                )
+        missing, unexpected = self.backbone.load_state_dict(state_dict, strict=False)
+        if not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0:
+            if missing or unexpected:
+                logging.warning(
+                    f"TIPSv2 checkpoint '{ckpt_path}': "
+                    f"missing={missing}, unexpected={unexpected}"
+                )
+            else:
+                logging.info(f"TIPSv2 checkpoint loaded from '{ckpt_path}'.")
 
     def freeze_encoder(self):
         """Freeze the backbone encoder parameters."""

@@ -196,6 +196,38 @@ class PMT_CLASS(nn.Module):
 
         return normed_features, rope, H, W
 
+    def tipsv2_forward(
+        self,
+        x: torch.Tensor,
+        encoder_frozen: bool = False,
+    ) -> Tuple[List[torch.Tensor], int, int]:
+        """Forward pass for TIPSv2 vision encoder."""
+        backbone = self.encoder.backbone
+
+        def _forward_features(x: torch.Tensor):
+            features: List[torch.Tensor] = []
+            _, _, h, w = x.shape
+            H = h // backbone.patch_size
+            W = w // backbone.patch_size
+
+            x = backbone.prepare_tokens_with_masks(x)
+
+            for idx, blk in enumerate(backbone.blocks):
+                x = blk(x)
+                if idx in self.interaction_indices:
+                    features.append(backbone.norm(x))
+
+            return features, H, W
+
+        if encoder_frozen:
+            with torch.no_grad():
+                features, H, W = _forward_features(x)
+        else:
+            features, H, W = _forward_features(x)
+
+        normed_features = self.normalize_features(features)
+        return normed_features, H, W
+
     def eva_forward(
         self,
         x: torch.Tensor,
@@ -240,6 +272,10 @@ class PMT_CLASS(nn.Module):
         elif self.encoder.is_eva:
             outputs, _, H, W = self.eva_forward(x, encoder_frozen=self.encoder.is_frozen) # this should return rope
             # EVA rope is not compatible with DINOv3 layers in the decoder, recompute it for simplicity
+            if self.decoder_pe == 'rope':
+                rope = self.rope(x)
+        elif self.encoder.is_tipsv2:
+            outputs, H, W = self.tipsv2_forward(x, encoder_frozen=self.encoder.is_frozen)
             if self.decoder_pe == 'rope':
                 rope = self.rope(x)
         else:
